@@ -4,43 +4,19 @@ import numpy as np
 import torch
 import logging
 
-
-
-            # c = Client(
-            #     client_idx,
-            #     train_data_local_dict[client_idx],
-            #     test_data_local_dict[client_idx],
-            #     train_data_local_num_dict[client_idx],
-            #     self.args,
-            #     self.device,
-            #     model_trainer,
-            # )
-# local_training_data, local_test_data, local_sample_number
 class ClientPushsumMod(object):
     def __init__(
         self,
         model,
-        # model_cache,
         client_idx,
-        local_training_data,       # added from fedavg           
-        local_test_data,           # added from fedavg
-        local_sample_number,   # added from fedavg
+        local_training_data,            # added from fedavg           
+        local_test_data,                # added from fedavg
+        local_sample_number,            # added from fedavg
         topology_manager,
-        # iteration_number,             # removed and simplified to args
-        # learning_rate,                # removed and simplified to args
-        # batch_size,                   # removed and simplified to args
-        # weight_decay,                 # removed and simplified to args
-    # latency,                          # removed and simplified to args
-        # b_symmetric,                  # removed and simplified to args
-        # time_varying,                 # removed and simplified to args
         args,                           # added from fedavg
         device,                         # added from fedavg
         model_trainer,                  # added from fedavg
     ):
-        # logging.info("streaming_data = %s" % streaming_data)
-
-        # Since we use logistic regression, the model size is small.
-        # Thus, independent model is created each client.
         logging.info("Initializing new client...")
         self.model = model
         self.client_idx = client_idx
@@ -58,44 +34,6 @@ class ClientPushsumMod(object):
         logging.info("TRAIING_DATA_LOCAL_NUM_DICT:{}".format(self.local_sample_number))
         logging.info("DEVICE:{}".format(self.device))
         logging.info("MODEL_TRAINER:{}".format(self.model_trainer))
-        # self.model = copy.deepcopy(self.model_trainer.get_model_params())
-    
-        # self.args = args
-
-        # self.b_symmetric = b_symmetric
-        # self.topology_manager = topology_manager
-        # self.id = client_id  # integer
-        # self.streaming_data = streaming_data
-
-        # if self.b_symmetric:
-        #     self.topology = topology_manager.get_symmetric_neighbor_list(client_id)
-        # else:
-        #     self.topology = topology_manager.get_asymmetric_neighbor_list(client_id)
-        # self.time_varying = time_varying
-
-        # self.optimizer = torch.optim.SGD(
-        #     self.model.parameters(), lr=learning_rate, weight_decay=weight_decay
-        # )
-        # self.criterion = torch.nn.BCELoss()
-
-        # self.learning_rate = learning_rate
-
-        # self.iteration_number = iteration_number
-
-        # self.batch_size = batch_size
-        # self.loss_in_each_iteration = []
-
-        # self.omega = 1
-
-        # # the default weight of the model is z_t, while the x weight is another weight used as temporary value
-        # # self.model_x = model_cache
-        # self.model_x = model
-
-
-        # # neighbors_weight_dict
-        # self.neighbors_weight_dict = dict()
-        # self.neighbors_omega_dict = dict()
-        # self.neighbors_topo_weight_dict = dict()
 
     def train_local(self, iteration_id):
         self.optimizer.zero_grad()
@@ -115,47 +53,18 @@ class ClientPushsumMod(object):
         weights = self.model_trainer.get_model_params()
         self.model = weights
         return weights
-        # self.optimizer.zero_grad()
-
-        # if iteration_id >= self.iteration_number:
-        #     iteration_id = iteration_id % self.iteration_number
-
-        # # update the confusion matrix
-        # if self.time_varying:
-        #     seed = iteration_id
-        #     random.seed(seed)
-        #     np.random.seed(seed)
-        #     self.topology_manager.generate_topology()
-        #     if self.b_symmetric:
-        #         self.topology = self.topology_manager.get_symmetric_neighbor_list(
-        #             self.id
-        #         )
-        #     else:
-        #         self.topology = self.topology_manager.get_asymmetric_neighbor_list(
-        #             self.id
-        #         )
-
-        # train_x = torch.from_numpy(self.streaming_data[iteration_id]["x"]).float()
-        # # print(train_x)
-        # train_y = torch.FloatTensor([self.streaming_data[iteration_id]["y"]])
-        # outputs = self.model(train_x)
-        # # print(train_y)
-        # loss = self.criterion(outputs, train_y)  # pylint: disable=E1102
-        # grads_z = torch.autograd.grad(loss, self.model.parameters())
-
-        # for x_paras, g_z in zip(list(self.model_x.parameters()), grads_z):
-        #     temp = g_z.data.mul(0 - self.learning_rate)
-        #     x_paras.data.add_(temp)
-
-        # self.loss_in_each_iteration.append(loss)
 
     def get_regret(self):
         return self.loss_in_each_iteration
+    
+    def send_local_weights_to_neighbors(self, client_list):
+        return
 
     # simulation
     # more like send this node's weights to other nodes in the neighborhood
     def send_local_gradient_to_neighbor(self, client_list):
         logging.info("Sending local gradient updates of node {} to its neighbors")
+        # for index in range(self.topology):
         # for index in range(len(self.topology)):
         #     if self.topology[index] != 0 and index != self.id:
         #         client = client_list[index]
