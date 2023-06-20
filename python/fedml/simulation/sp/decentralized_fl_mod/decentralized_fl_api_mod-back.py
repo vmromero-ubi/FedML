@@ -61,29 +61,49 @@ class FedML_decentralized_fl_mod(object):
         logging.info("SIZE OF TESTING GLOBAL {}/{}".format(len(self.test_global), self.test_data_num_in_total))
         logging.info("MODEL = {}".format(self.model))
 
+    # def __init__(self, client_number, client_id_list, dataset, model, model_cache, args):
+
+    # network parameters
+        b_symmetric = args.b_symmetric # a boolean value that determines if the network is symmetric (true) or asymmetric (false)
+        topology_neighbors_num_undirected = args.topology_neighbors_num_undirected # the number of undirected neighbors for each participating node, used by the topology generator
+        topology_neighbors_num_directed = args.topology_neighbors_num_directed # the number of directed neighbors for each participating node, used by the topology generator
+
+        #client parameters
+        lr_rate = args.learning_rate # a parameter that controlls the speed at which the network learns as a ratio of the gradients, passed at each client constructor
+        batch_size = args.batch_size # the number of datapoints at each abtch, passed at each client constructor
+        weight_decay = args.weight_decay # a parameters for weight decay, passed at each client constructor
+        latency = args.latency # parameter for latency, passed at each client constructor
+        time_varying = args.time_varying #parameter flag for time varying, passed at each client contructor
+        
+        #training parameters
+        iteration_number_T = args.iteration_number # set the iteration number, i.e. the number of times the serverless network will train the network
+        epoch = args.epoch # parameter for no of epochs, used to affect training duration, not passed at each node
+        client_number = args.client_num_participant
+        # create the network topology topology
+        
         # prepare clients 
         client_id_list= [i for i in range(self.args.client_num_participant)]
         client_data_index = self.sample_without_rep()
         logging.info("Client list: {}".format(client_id_list))
         logging.info("Corrseponding datasets: {}".format(client_data_index))
 
-        logging.info("generating topology for {} participating clients".format(self.args.client_num_participant))
-        if self.args.b_symmetric:
+        logging.info("generating topology for {} participating clients".format(client_number))
+        if b_symmetric:
             self.topology_manager = TopologyManagerMod(
-                self.args.client_num_participant,
+                client_number,
                 True,
-                undirected_neighbor_num=self.args.topology_neighbors_num_undirected,
+                undirected_neighbor_num=topology_neighbors_num_undirected,
             )
         else:
             self.topology_manager = TopologyManagerMod(
-                self.args.client_num_participant,
+                client_number,
                 False,
-                undirected_neighbor_num=self.args.topology_neighbors_num_undirected,
-                out_directed_neighbor=self.args.topology_neighbors_num_directed,
+                undirected_neighbor_num=topology_neighbors_num_undirected,
+                out_directed_neighbor=topology_neighbors_num_directed,
             )
         self.topology_manager.generate_topology()
         logging.info("finished topology generation")
-        if self.args.b_symmetric:
+        if b_symmetric:
             logging.info("Generated symmetric  topology:\n {}".format(self.topology_manager.topology_symmetric))
         else:
             logging.info("Generated asymmetric topology:\n {}".format(self.topology_manager.topology_asymmetric))

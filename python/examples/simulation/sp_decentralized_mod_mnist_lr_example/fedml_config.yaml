@@ -13,7 +13,7 @@ data_args:
   partition_alpha: 0.5
 
 model_args:
-  model: "cnn"
+  model: "lr"
 
 train_args:
   federated_optimizer: "decentralized_fl_mod"
