@@ -35,6 +35,12 @@ class ClientPushsumMod(object):
         logging.info("DEVICE:{}".format(self.device))
         logging.info("MODEL_TRAINER:{}".format(self.model_trainer))
 
+        # neighbors_weight_dict used for receiving weights from other clients
+        self.neighbors_weight_dict = dict()
+        self.neighbors_omega_dict = dict()
+        self.neighbors_topo_weight_dict = dict()
+
+    #this code is not used.
     def train_local(self, iteration_id):
         self.optimizer.zero_grad()
         train_x = torch.from_numpy(self.streaming_data[iteration_id]["x"])
@@ -64,7 +70,18 @@ class ClientPushsumMod(object):
     # more like send this node's weights to other nodes in the neighborhood
     def send_local_gradient_to_neighbor(self, client_list):
         logging.info("Sending local gradient updates of node {} to its neighbors")
-        # for index in range(self.topology):
+        #assume it is all symmetric
+        for index in range (self.args.client_num_participant):
+            if self.topology.topology_symmetric[self.client_idx][index]!=0 and index!=self.client_idx:
+                logging.info("Client {} should send weights to client {}".format(self.client_idx, index))
+                receiver_client = client_list[index]
+                receiver_client.receive_neighbor_gradients(
+                    self.client_idx,
+                    self.model
+                )
+
+        # if(self.args.b_symmetric):
+
         # for index in range(len(self.topology)):
         #     if self.topology[index] != 0 and index != self.id:
         #         client = client_list[index]
@@ -76,14 +93,39 @@ class ClientPushsumMod(object):
         #             self.omega * self.topology[index],
         #         )
 
-    def receive_neighbor_gradients(self, client_id, model_x, topo_weight, omega):
+    def receive_neighbor_gradients(self, client_id, model_x):
         self.neighbors_weight_dict[client_id] = model_x
-        self.neighbors_topo_weight_dict[client_id] = topo_weight
-        self.neighbors_omega_dict[client_id] = omega
+        logging.info("Client{} received weights from client{}, len:{}".format(self.client_idx, client_id, len(self.neighbors_weight_dict)))
+
+
+    # def receive_neighbor_gradients(self, client_id, model_x, topo_weight, omega):
+    #     self.neighbors_weight_dict[client_id] = model_x
+    #     self.neighbors_topo_weight_dict[client_id] = topo_weight
+    #     self.neighbors_omega_dict[client_id] = omega
 
     def update_local_parameters(self):
-        logging.info("Updating_local_parameters at node {}".format(self.client_idx))
-        # # update x_{t+1/2}
+        #     logging.info("Updating_local_parameters at node {}".format(self.client_idx))
+
+        #     def _aggregate(self, w_locals):
+        # training_num = 0
+        # for idx in range(len(w_locals)):
+        #     (sample_num, averaged_params) = w_locals[idx]
+        #     training_num += sample_num
+
+        # (sample_num, averaged_params) = w_locals[0]
+        # for k in averaged_params.keys():
+        #     for i in range(0, len(w_locals)):
+        #         local_sample_number, local_model_params = w_locals[i]
+        #         w = local_sample_number / training_num
+        #         if i == 0:
+        #             averaged_params[k] = local_model_params[k] * w
+        #         else:
+        #             averaged_params[k] += local_model_params[k] * w
+        # return averaged_params
+        
+    # def update_local_parameters(self):
+    #     logging.info("Updating_local_parameters at node {}".format(self.client_idx))
+    #     # # update x_{t+1/2}
         # for x_paras in self.model_x.parameters():
         #     x_paras.data.mul_(self.topology[self.id])
 
