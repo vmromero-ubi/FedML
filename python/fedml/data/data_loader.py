@@ -232,6 +232,8 @@ def query_data_server(args, edgeId, s3_obj, BUCKET_NAME):
 
 
 def load(args):
+    logging.info("Total number of clients in the network:{}".format(args.client_num_in_total))
+
     return load_synthetic_data(args)
 
 

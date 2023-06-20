@@ -10,6 +10,8 @@ from ..constants import (
     FedML_FEDERATED_OPTIMIZER_CLASSICAL_VFL,
     FedML_FEDERATED_OPTIMIZER_SPLIT_NN,
     FedML_FEDERATED_OPTIMIZER_DECENTRALIZED_FL,
+    FedML_FEDERATED_OPTIMIZER_DECENTRALIZED_FL_MOD,
+    FedML_FEDERATED_OPTIMIZER_OPPORTUNISTIC_FL,
     FedML_FEDERATED_OPTIMIZER_FEDGAN,
     FedML_FEDERATED_OPTIMIZER_FEDAVG_SEQ,
     FedML_FEDERATED_OPTIMIZER_FEDGKT,
@@ -22,7 +24,7 @@ from ..constants import (
     FedML_FEDERATED_OPTIMIZER_ASYNC_FEDAVG,
 )
 from ..core import ClientTrainer, ServerAggregator
-
+import logging
 
 class SimulatorSingleProcess:
     def __init__(self, args, device, dataset, model, client_trainer=None, server_aggregator=None):
@@ -36,7 +38,10 @@ class SimulatorSingleProcess:
         from .sp.fedopt.fedopt_api import FedOptAPI
         from .sp.hierarchical_fl.trainer import HierarchicalTrainer
         from .sp.turboaggregate.TA_trainer import TurboAggregateTrainer
+        from .sp.decentralized_fl_mod.decentralized_fl_api_mod import FedML_decentralized_fl_mod
+        from .sp.opportunistic.opportunistic_fl_api import OpportunisticAPI
 
+        logging.info("Number of clients in the network: {}".format(args.client_num_in_total))
         if args.federated_optimizer == FedML_FEDERATED_OPTIMIZER_FEDAVG:
             self.fl_trainer = FedAvgAPI(args, device, dataset, model)
         elif args.federated_optimizer == FedML_FEDERATED_OPTIMIZER_FEDOPT:
@@ -58,8 +63,16 @@ class SimulatorSingleProcess:
         elif args.federated_optimizer == FedML_FEDERATED_OPTIMIZER_CLASSICAL_VFL:
             self.fl_trainer = VflFedAvgAPI(args, device, dataset, model)
 
-        # elif args.fl_trainer == FedML_FEDERATED_OPTIMIZER_DECENTRALIZED_FL:
-        #     self.fl_trainer = FedML_decentralized_fl()
+        #Experimental zone
+        elif args.federated_optimizer == FedML_FEDERATED_OPTIMIZER_OPPORTUNISTIC_FL:
+            self.fl_trainer = OpportunisticAPI(args,device, dataset, model)
+        elif args.federated_optimizer == FedML_FEDERATED_OPTIMIZER_DECENTRALIZED_FL_MOD:
+            self.fl_trainer = FedML_decentralized_fl_mod(args.client_num_in_total, args.client_id_list, dataset, model, None, args )
+
+
+#             def FedML_decentralized_fl(client_number, client_id_list, streaming_data, model, model_cache, args):
+            # self.fl_trainer = FedML_decentralized_fl(args.client_num_in_total, client_id_list, model, )
+            raise Exception("Attempting to implement decentralized federated learning")
         else:
             raise Exception("Exception")
 

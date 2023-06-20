@@ -40,6 +40,8 @@ def get_device_type(args):
 
 
 def get_device(args):
+    logging.info("Total number of clients in the network:{}".format(args.client_num_in_total))
+
     if args.training_type == "simulation" and args.backend == "sp":
         if not hasattr(args, "gpu_id"):
             args.gpu_id = 0

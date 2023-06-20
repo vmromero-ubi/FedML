@@ -17,6 +17,8 @@ from fedml.model.nlp.rnn import RNN_OriginalFedAvg, RNN_StackOverFlow, RNN_FedSh
 
 
 def create(args, output_dim):
+    logging.info("Total number of clients in the network:{}".format(args.client_num_in_total))
+
     global model
     model_name = args.model
     logging.info("create_model. model_name = %s, output_dim = %s" % (model_name, output_dim))

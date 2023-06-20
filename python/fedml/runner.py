@@ -14,7 +14,7 @@ from .constants import (
     FEDML_SIMULATION_TYPE_SP,
 )
 from .core import ClientTrainer, ServerAggregator, FedMLAlgorithmFlow
-
+import logging
 
 class FedMLRunner:
     def __init__(
@@ -27,6 +27,7 @@ class FedMLRunner:
         server_aggregator: ServerAggregator = None,
         algorithm_flow: FedMLAlgorithmFlow = None,
     ):
+        logging.info("Total number of clients in the network:{}".format(args.client_num_in_total))
         if algorithm_flow is not None:
             self.runner = algorithm_flow
             return

@@ -7,7 +7,6 @@ from .client_dsgd import ClientDSGD
 from .client_pushsum import ClientPushsum
 from .topology_manager import TopologyManager
 
-
 def cal_regret(client_list, client_number, t):
     regret = 0
     for client in client_list:

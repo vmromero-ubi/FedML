@@ -18,8 +18,9 @@ model_args:
 train_args:
   federated_optimizer: "opportunistic_fl"
   client_id_list: "[]"
-  client_num_in_total: 1000
+  client_num_in_total: 10
   client_num_per_round: 4
+  client_num_participant: 10
   comm_round: 10
   epochs: 1
   batch_size: 10
@@ -33,6 +34,7 @@ train_args:
   b_symmetric: false
   epoch: 5
   time_varying: false
+  link_probability: 0.1
 
 simulation_args:
   simulation_end_time: 10000
