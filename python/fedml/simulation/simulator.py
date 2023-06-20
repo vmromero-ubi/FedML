@@ -64,15 +64,16 @@ class SimulatorSingleProcess:
             self.fl_trainer = VflFedAvgAPI(args, device, dataset, model)
 
         #Experimental zone
-        elif args.federated_optimizer == FedML_FEDERATED_OPTIMIZER_OPPORTUNISTIC_FL:
-            self.fl_trainer = OpportunisticAPI(args,device, dataset, model)
+        # elif args.federated_optimizer == FedML_FEDERATED_OPTIMIZER_OPPORTUNISTIC_FL:
+        #     self.fl_trainer = OpportunisticAPI(args,device, dataset, model)
         elif args.federated_optimizer == FedML_FEDERATED_OPTIMIZER_DECENTRALIZED_FL_MOD:
-            self.fl_trainer = FedML_decentralized_fl_mod(args.client_num_in_total, args.client_id_list, dataset, model, None, args )
+            self.fl_trainer = FedML_decentralized_fl_mod(args, device, dataset, model)
+                                                        # def __init__(self, args, device, dataset, model):
 
 
 #             def FedML_decentralized_fl(client_number, client_id_list, streaming_data, model, model_cache, args):
             # self.fl_trainer = FedML_decentralized_fl(args.client_num_in_total, client_id_list, model, )
-            raise Exception("Attempting to implement decentralized federated learning")
+            # raise Exception("Attempting to implement decentralized federated learning")
         else:
             raise Exception("Exception")
 

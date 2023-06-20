@@ -154,5 +154,5 @@ class TopologyManagerMod:
 
 
 if __name__ == "__main__":
-    tpmgr = TopologyManager(16, False, 4, 4)
+    tpmgr = TopologyManagerMod(16, False, 4, 4)
     tpmgr.generate_topology()
