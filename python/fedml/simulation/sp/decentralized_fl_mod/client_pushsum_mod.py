@@ -3,6 +3,7 @@ import random
 import numpy as np
 import torch
 import logging
+import copy
 
 class ClientPushsumMod(object):
     def __init__(
@@ -52,13 +53,17 @@ class ClientPushsumMod(object):
         self.loss_in_each_iteration.append(loss)
 
     def train(self, iteration_id):
-        logging.info("Training at client{} for iteration{}".format(self.client_idx, iteration_id))
+        # if self.client_idx == 0:
+        #     logging.info("TRAINING... Client:{}, Iteration:{}, \nPRE_WEIGHTS:{}".format(self.client_idx, iteration_id, self.model))
+        # logging.info("Pre-training weights: {} at client{} for it".format(self.model))
         self.model_trainer.set_id(self.client_idx)
-        self.model_trainer.set_model_params(self.model)
+        self.model_trainer.set_model_params(copy.deepcopy(self.model))
         self.model_trainer.train(self.local_training_data, self.device, self.args)
         weights = self.model_trainer.get_model_params()
-        self.model = weights
-        return weights
+        self.model = copy.deepcopy(weights)
+        # if self.client_idx == 0:
+        #     logging.info("TRAINING... Client:{}, Iteration:{}, \nPOST_WEIGHTS:{}".format(self.client_idx, iteration_id, self.model))
+        # return weights
 
     def get_regret(self):
         return self.loss_in_each_iteration
@@ -68,12 +73,13 @@ class ClientPushsumMod(object):
 
     # simulation
     # more like send this node's weights to other nodes in the neighborhood
+    # assumes that deep copy is not necessary here because they have been set post training
     def send_local_gradient_to_neighbor(self, client_list):
-        logging.info("Sending local gradient updates of node {} to its neighbors")
+        # logging.info("Sending local gradient updates of node {} to its neighbors")
         #assume it is all symmetric
         for index in range (self.args.client_num_participant):
             if self.topology.topology_symmetric[self.client_idx][index]!=0 and index!=self.client_idx:
-                logging.info("Client {} should send weights to client {}".format(self.client_idx, index))
+                # logging.info("Client {} should send weights to client {}".format(self.client_idx, index))
                 receiver_client = client_list[index]
                 receiver_client.receive_neighbor_gradients(
                     self.client_idx,
@@ -95,7 +101,7 @@ class ClientPushsumMod(object):
 
     def receive_neighbor_gradients(self, client_id, model_x):
         self.neighbors_weight_dict[client_id] = model_x
-        logging.info("Client{} received weights from client{}, len:{}".format(self.client_idx, client_id, len(self.neighbors_weight_dict)))
+        # logging.info("Client{} received weights from client{}, len:{}".format(self.client_idx, client_id, len(self.neighbors_weight_dict)))
 
 
     # def receive_neighbor_gradients(self, client_id, model_x, topo_weight, omega):
@@ -104,8 +110,26 @@ class ClientPushsumMod(object):
     #     self.neighbors_omega_dict[client_id] = omega
 
     def update_local_parameters(self):
-        #     logging.info("Updating_local_parameters at node {}".format(self.client_idx))
+        normalizer = 1/(1+len(self.neighbors_weight_dict)) # a naive implementation of weighte averaging. we assume that the number of samples at each ndoe is similar. 
+        # logging.info("AGGREGATION... Client ID: {}/TOTAL_CLIENTS: {}".format(self.client_idx, self.args.client_num_participant))
+        # logging.info("AVAILABLE WEIGHTS: {}, NORMALIZER: {}".format(len(self.neighbors_weight_dict), normalizer))
+        new_model = copy.deepcopy(self.model)
+                                  
+        for k in new_model.keys():
+            logging.info("AGGREGATING FOR:  {}".format(k))
+            logging.info("INITITAL: {}".format(new_model[k]))
+            for i in self.neighbors_weight_dict:
+                neighbor_weight = self.neighbors_weight_dict[i]
+                logging.info("WITH: {}".format(neighbor_weight[k]))
+                new_model[k] += neighbor_weight[k]
+                logging.info("NEW: {}".format(new_model[k]))
 
+            new_model[k] *= normalizer #divide by number of participating nodes
+            logging.info("NORMALIZED: {}".format(new_model[k]))
+        self.model = copy.deepcopy(new_model)
+
+        #     logging.info("Post aggregation: {}".format(self.model[k]))
+        # return new_model
         #     def _aggregate(self, w_locals):
         # training_num = 0
         # for idx in range(len(w_locals)):

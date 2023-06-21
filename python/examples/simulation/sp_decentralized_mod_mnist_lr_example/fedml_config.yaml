@@ -13,21 +13,21 @@ data_args:
   partition_alpha: 0.5
 
 model_args:
-  model: "lr"
+  model: "cnn"
 
 train_args:
   federated_optimizer: "decentralized_fl_mod"
   client_id_list: "[]"
-  client_num_in_total: 10
+  client_num_in_total: 1000
   client_num_per_round: 4
-  client_num_participant: 10
+  client_num_participant: 500
   comm_round: 10
   epochs: 1
   batch_size: 10
   client_optimizer: sgd
   learning_rate: 0.03
   weight_decay: 0.001
-  iteration_number: 50
+  iteration_number: 1000
   topology_neighbors_num_undirected: 5
   topology_neighbors_num_directed: 5
   latency: 0
