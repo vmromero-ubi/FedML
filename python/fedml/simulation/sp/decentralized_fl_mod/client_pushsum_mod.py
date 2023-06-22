@@ -65,6 +65,24 @@ class ClientPushsumMod(object):
         #     logging.info("TRAINING... Client:{}, Iteration:{}, \nPOST_WEIGHTS:{}".format(self.client_idx, iteration_id, self.model))
         # return weights
 
+        # local test must be called only when this client is sure that its own model is loaded
+        # in the model trainer. otherwise, it will test against some other clients data
+
+    def update_topology(self, new_topology):
+        self.topology = new_topology
+
+    def local_test(self, b_use_test_dataset):
+        # set the parameters at the model trainer to this node's model also set the id
+        self.model_trainer.set_id(self.client_idx)
+        self.model_trainer.set_model_params(self.model)
+        if b_use_test_dataset:
+            test_data = self.local_test_data
+
+        else:
+            test_data = self.local_training_data
+        metrics = self.model_trainer.test(test_data, self.device, self.args)
+        return metrics
+    
     def get_regret(self):
         return self.loss_in_each_iteration
     
@@ -77,104 +95,42 @@ class ClientPushsumMod(object):
     def send_local_gradient_to_neighbor(self, client_list):
         # logging.info("Sending local gradient updates of node {} to its neighbors")
         #assume it is all symmetric
+        neighbor_list = []
         for index in range (self.args.client_num_participant):
             if self.topology.topology_symmetric[self.client_idx][index]!=0 and index!=self.client_idx:
                 # logging.info("Client {} should send weights to client {}".format(self.client_idx, index))
+                neighbor_list.append(index)
                 receiver_client = client_list[index]
                 receiver_client.receive_neighbor_gradients(
                     self.client_idx,
                     self.model
                 )
-
-        # if(self.args.b_symmetric):
-
-        # for index in range(len(self.topology)):
-        #     if self.topology[index] != 0 and index != self.id:
-        #         client = client_list[index]
-        #         logging.info("@Client{}, {} is a neighbor, sending...".format(self.client_idx, index))
-        #         client.receive_neighbor_gradients(
-        #             self.id,
-        #             self.model_x,
-        #             self.topology[index],
-        #             self.omega * self.topology[index],
-        #         )
+        # if(self.client_idx==1):
+        #     logging.info("Sent to: {}".format(neighbor_list))
 
     def receive_neighbor_gradients(self, client_id, model_x):
         self.neighbors_weight_dict[client_id] = model_x
         # logging.info("Client{} received weights from client{}, len:{}".format(self.client_idx, client_id, len(self.neighbors_weight_dict)))
 
-
-    # def receive_neighbor_gradients(self, client_id, model_x, topo_weight, omega):
-    #     self.neighbors_weight_dict[client_id] = model_x
-    #     self.neighbors_topo_weight_dict[client_id] = topo_weight
-    #     self.neighbors_omega_dict[client_id] = omega
-
     def update_local_parameters(self):
         normalizer = 1/(1+len(self.neighbors_weight_dict)) # a naive implementation of weighte averaging. we assume that the number of samples at each ndoe is similar. 
-        # logging.info("AGGREGATION... Client ID: {}/TOTAL_CLIENTS: {}".format(self.client_idx, self.args.client_num_participant))
+        # if(self.client_idx == 1):
+        #     logging.info("AGGREGATION... ID: {} | TOTAL: {} | NORM: {}".format(self.client_idx, self.args.client_num_participant, normalizer))
         # logging.info("AVAILABLE WEIGHTS: {}, NORMALIZER: {}".format(len(self.neighbors_weight_dict), normalizer))
         new_model = copy.deepcopy(self.model)
                                   
         for k in new_model.keys():
-            logging.info("AGGREGATING FOR:  {}".format(k))
-            logging.info("INITITAL: {}".format(new_model[k]))
+            # logging.info("AGGREGATING FOR:  {}".format(k))
+            # logging.info("INITITAL: {}".format(new_model[k]))
             for i in self.neighbors_weight_dict:
                 neighbor_weight = self.neighbors_weight_dict[i]
-                logging.info("WITH: {}".format(neighbor_weight[k]))
+                # logging.info("WITH: {}".format(neighbor_weight[k]))
                 new_model[k] += neighbor_weight[k]
-                logging.info("NEW: {}".format(new_model[k]))
+                # logging.info("NEW: {}".format(new_model[k]))
 
-            new_model[k] *= normalizer #divide by number of participating nodes
-            logging.info("NORMALIZED: {}".format(new_model[k]))
+            new_model[k] *= normalizer 
+            # logging.info("NORMALIZED: {}".format(new_model[k]))
         self.model = copy.deepcopy(new_model)
+        self.neighbors_weight_dict = dict() #reset my weight dict
 
-        #     logging.info("Post aggregation: {}".format(self.model[k]))
-        # return new_model
-        #     def _aggregate(self, w_locals):
-        # training_num = 0
-        # for idx in range(len(w_locals)):
-        #     (sample_num, averaged_params) = w_locals[idx]
-        #     training_num += sample_num
 
-        # (sample_num, averaged_params) = w_locals[0]
-        # for k in averaged_params.keys():
-        #     for i in range(0, len(w_locals)):
-        #         local_sample_number, local_model_params = w_locals[i]
-        #         w = local_sample_number / training_num
-        #         if i == 0:
-        #             averaged_params[k] = local_model_params[k] * w
-        #         else:
-        #             averaged_params[k] += local_model_params[k] * w
-        # return averaged_params
-        
-    # def update_local_parameters(self):
-    #     logging.info("Updating_local_parameters at node {}".format(self.client_idx))
-    #     # # update x_{t+1/2}
-        # for x_paras in self.model_x.parameters():
-        #     x_paras.data.mul_(self.topology[self.id])
-
-        # for client_id in self.neighbors_weight_dict.keys():
-        #     model_x = self.neighbors_weight_dict[client_id]
-        #     topo_weight = self.neighbors_topo_weight_dict[client_id]
-        #     for x_paras, x_neighbor in zip(
-        #         list(self.model_x.parameters()), list(model_x.parameters())
-        #     ):
-        #         temp = x_neighbor.data.mul(topo_weight)
-        #         # print("topo_weight=" + str(topo_weight))
-        #         # print("x_neighbor=" + str(temp))
-        #         x_paras.data.add_(temp)
-
-        # # update omega
-        # self.omega *= self.topology[self.id]
-        # for client_id in self.neighbors_omega_dict.keys():
-        #     self.omega += self.neighbors_omega_dict[client_id]
-
-        # # print(self.omega)
-
-        # # update parameter z (self.model)
-        # for x_params, z_params in zip(
-        #     list(self.model_x.parameters()), list(self.model.parameters())
-        # ):
-        #     # print("1.0 / self.omega=" + str(1.0 / self.omega))
-        #     temp = x_params.data.mul(1.0 / self.omega)
-        #     z_params.data.copy_(temp)

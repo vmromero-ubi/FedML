@@ -51,7 +51,7 @@ class FedML_decentralized_fl_mod(object):
         self.test_data_local_dict = test_data_local_dict
         self.dataset_class_num = class_num
         #
-        self.model_trainer = create_model_trainer(model, args) #not sure if this will be used, but it assumed that this should not be detrimental to us in any way        
+        self.model_trainer = create_model_trainer(model, args)  #the class that allows us to train a model, this is implemented by fedml      
         self.model = model
         self.client_list = []
         logging.info("INITIALIZING DECENTRALIZED TRAINING...")
@@ -63,7 +63,7 @@ class FedML_decentralized_fl_mod(object):
 
         # prepare clients 
         client_id_list= [i for i in range(self.args.client_num_participant)]
-        client_data_index = self.sample_without_rep()
+        client_data_index = self.sample_without_rep() # this is not used yet, i think... lol
         logging.info("Client list: {}".format(client_id_list))
         logging.info("Corrseponding datasets: {}".format(client_data_index))
 
@@ -90,28 +90,6 @@ class FedML_decentralized_fl_mod(object):
         
         self.setup_clients(train_data_local_num_dict, train_data_local_dict, test_data_local_dict, self.model_trainer)
 
-                # # create all client instances (each client will create an independent model instance)
-        # client_list = []
-        # for client_id in client_id_list:
-        #     client_data = streaming_data[client_id]
-        #     # print("len = " + str(len(client_data)))
-
-        #     if args.mode == "PUSHSUM":
-
-        #         client = ClientPushsum(
-        #             model,
-        #             model_cache,
-        #             client_id,
-        #             client_data,
-        #             topology_manager,
-        #             iteration_number_T,
-        #             learning_rate=lr_rate,
-        #             batch_size=batch_size,
-        #             weight_decay=weight_decay,
-        #             latency=latency,
-        #             b_symmetric=b_symmetric,
-        #             time_varying=time_varying,
-        #         )
 
     # this function is being prepared for when clients will be sampled over total population to introduce variations in the experiments
     # however, the current implementation assumes that the clients are sampled consequtively from 0 to number of participants 
@@ -142,149 +120,106 @@ class FedML_decentralized_fl_mod(object):
             )
             self.client_list.append(c)
 
-    # def __init__(
-    #     self,
-    #     model,
-    #     model_cache,
-    #     client_id,
-    #     training_data_local_dict,       #added from fedavg           
-    #     test_data_local_dict,           #added from fedavg
-    #     training_data_local_num_dict,   #added from fedavg
-    #     topology_manager,
-    #     iteration_number,
-    #     learning_rate,
-    #     batch_size,
-    #     weight_decay,
-    #     latency,
-    #     b_symmetric,
-    #     time_varying,
-    #     args,                           #added from fedavg
-    #     device,                         #added from fedavg
-    #     model_trainer,                  #added from fedavg
-    # ):
-        #  logging.info("Setting up {}/{} participants for this simulation".format(self.args.client_num_participant, self.args.client_num_in_total))
-
     def train(self):
-        logging.info("Training in a decentralized manner")
+        logging.info("DECENTRALIZED TRAINING STARTED")
+
         for t in range(self.args.iteration_number * self.args.epochs):
+            train_metrics_pre = {"num_samples": [], "num_correct": [], "losses": []}
+            test_metrics_pre = {"num_samples": [], "num_correct": [], "losses": []}
+            train_metrics_post = {"num_samples": [], "num_correct": [], "losses": []}
+            test_metrics_post = {"num_samples": [], "num_correct": [], "losses": []}            
             for client in self.client_list:
+                #gather test metrics on train data 
+                train_local_metrics = client.local_test(False)
+                train_metrics_pre["num_samples"].append(copy.deepcopy(train_local_metrics["test_total"]))
+                train_metrics_pre["num_correct"].append(copy.deepcopy(train_local_metrics["test_correct"]))
+                train_metrics_pre["losses"].append(copy.deepcopy(train_local_metrics["test_loss"]))
+                train_local_metrics = client.local_test(True)
+                test_metrics_pre["num_samples"].append(copy.deepcopy(train_local_metrics["test_total"]))
+                test_metrics_pre["num_correct"].append(copy.deepcopy(train_local_metrics["test_correct"]))
+                test_metrics_pre["losses"].append(copy.deepcopy(train_local_metrics["test_loss"]))               
+                # 
                 client.train(t)
                 client.send_local_gradient_to_neighbor(self.client_list)
             for client in self.client_list:
                 client.update_local_parameters()
-        logging.info("Training is completed.")
+            
+                    # test on training dataset
+            train_acc = sum(train_metrics_pre["num_correct"]) / sum(train_metrics_pre["num_samples"])
+            train_loss = sum(train_metrics_pre["losses"]) / sum(train_metrics_pre["num_samples"])
 
-            # for t in range(iteration_number_T * epoch):
-        #     logging.info("--- Iteration %d ---" % t)
+            # test on test dataset
+            test_acc = sum(test_metrics_pre["num_correct"]) / sum(test_metrics_pre["num_samples"])
+            test_loss = sum(test_metrics_pre["losses"]) / sum(test_metrics_pre["num_samples"])
+            logging.info(" {} Metrics: {} | {} | {} | {}".format(t, train_acc, train_loss, test_acc, test_loss))
+            #update the topology, this currently does not work
+            # if(self.args.time_varying):
+            #   self.topology_manager.generate_topology()
+            #   logging.info("Topo: {}".format(self.topology_manager.topology_symmetric))
+            #   for client in self.client_list:
+            #       client.update_topology(self.topology_manager)
 
-        #     if args.mode == "DOL" or args.mode == "PUSHSUM":
-        #         for client in client_list:
-        #             # line 4: Locally computes the intermedia variable
-        #             client.train(t)
+        logging.info("TRAINING DONE.")
 
-        #             # line 5: send to neighbors
-        #             client.send_local_gradient_to_neighbor(client_list)
+    #this is the local test on all clients function from the fedavg api
+    # this cannot be used directly in the decentralized setting since we expect the models stored at each node to diverge. 
+    # def _local_test_on_all_clients(self, round_idx):
 
-        #         # line 6: update
-        #         for client in client_list:
-        #             client.update_local_parameters()
-        #     else:
-        #         for client in client_list:
-        #             client.train_local(t)
+    #     logging.info("################local_test_on_all_clients : {}".format(round_idx))
 
-        #     regret = cal_regret(client_list, client_number, t)
-        #     # print("regret = %s" % regret)
+    #     train_metrics = {"num_samples": [], "num_correct": [], "losses": []}
 
-        #     wandb.log({"Average Loss": regret, "iteration": t})
+    #     test_metrics = {"num_samples": [], "num_correct": [], "losses": []}
 
-        #     f_log.write("%f,%f\n" % (t, regret))
+    #     client = self.client_list[0]
 
-        # f_log.close()
-        # wandb.save(log_file_path)    
+    #     for client_idx in range(self.args.client_num_in_total):
+    #         """
+    #         Note: for datasets like "fed_CIFAR100" and "fed_shakespheare",
+    #         the training client number is larger than the testing client number
+    #         """
+    #         if self.test_data_local_dict[client_idx] is None:
+    #             continue
+    #         client.update_local_dataset(
+    #             0,
+    #             self.train_data_local_dict[client_idx],
+    #             self.test_data_local_dict[client_idx],
+    #             self.train_data_local_num_dict[client_idx],
+    #         )
+    #         # train data
+    #         train_local_metrics = client.local_test(False)
+    #         train_metrics["num_samples"].append(copy.deepcopy(train_local_metrics["test_total"]))
+    #         train_metrics["num_correct"].append(copy.deepcopy(train_local_metrics["test_correct"]))
+    #         train_metrics["losses"].append(copy.deepcopy(train_local_metrics["test_loss"]))
 
-        # # create all client instances (each client will create an independent model instance)
-        # client_list = []
-        # for client_id in client_id_list:
-        #     client_data = streaming_data[client_id]
-        #     # print("len = " + str(len(client_data)))
+    #         # test data
+    #         test_local_metrics = client.local_test(True)
+    #         test_metrics["num_samples"].append(copy.deepcopy(test_local_metrics["test_total"]))
+    #         test_metrics["num_correct"].append(copy.deepcopy(test_local_metrics["test_correct"]))
+    #         test_metrics["losses"].append(copy.deepcopy(test_local_metrics["test_loss"]))
 
-        #     if args.mode == "PUSHSUM":
+    #     # test on training dataset
+    #     train_acc = sum(train_metrics["num_correct"]) / sum(train_metrics["num_samples"])
+    #     train_loss = sum(train_metrics["losses"]) / sum(train_metrics["num_samples"])
 
-        #         client = ClientPushsum(
-        #             model,
-        #             model_cache,
-        #             client_id,
-        #             client_data,
-        #             topology_manager,
-        #             iteration_number_T,
-        #             learning_rate=lr_rate,
-        #             batch_size=batch_size,
-        #             weight_decay=weight_decay,
-        #             latency=latency,
-        #             b_symmetric=b_symmetric,
-        #             time_varying=time_varying,
-        #         )
+    #     # test on test dataset
+    #     test_acc = sum(test_metrics["num_correct"]) / sum(test_metrics["num_samples"])
+    #     test_loss = sum(test_metrics["losses"]) / sum(test_metrics["num_samples"])
 
-        #     elif args.mode == "DOL":
+    #     stats = {"training_acc": train_acc, "training_loss": train_loss}
+    #     if self.args.enable_wandb:
+    #         wandb.log({"Train/Acc": train_acc, "round": round_idx})
+    #         wandb.log({"Train/Loss": train_loss, "round": round_idx})
 
-        #         client = ClientDSGD(
-        #             model,
-        #             model_cache,
-        #             client_id,
-        #             client_data,
-        #             topology_manager,
-        #             iteration_number_T,
-        #             learning_rate=lr_rate,
-        #             batch_size=batch_size,
-        #             weight_decay=weight_decay,
-        #             latency=latency,
-        #             b_symmetric=b_symmetric,
-        #         )
+    #     mlops.log({"Train/Acc": train_acc, "round": round_idx})
+    #     mlops.log({"Train/Loss": train_loss, "round": round_idx})
+    #     logging.info(stats)
 
-        #     else:
-        #         client = ClientDSGD(
-        #             model,
-        #             model_cache,
-        #             client_id,
-        #             client_data,
-        #             topology_manager,
-        #             iteration_number_T,
-        #             learning_rate=lr_rate,
-        #             batch_size=batch_size,
-        #             weight_decay=weight_decay,
-        #             latency=latency,
-        #             b_symmetric=b_symmetric,
-        #         )
+    #     stats = {"test_acc": test_acc, "test_loss": test_loss}
+    #     if self.args.enable_wandb:
+    #         wandb.log({"Test/Acc": test_acc, "round": round_idx})
+    #         wandb.log({"Test/Loss": test_loss, "round": round_idx})
 
-        #     client_list.append(client)
-
-        # log_file_path = "./log/decentralized_fl.txt"
-        # f_log = open(log_file_path, mode="w+", encoding="utf-8")
-
-        # for t in range(iteration_number_T * epoch):
-        #     logging.info("--- Iteration %d ---" % t)
-
-        #     if args.mode == "DOL" or args.mode == "PUSHSUM":
-        #         for client in client_list:
-        #             # line 4: Locally computes the intermedia variable
-        #             client.train(t)
-
-        #             # line 5: send to neighbors
-        #             client.send_local_gradient_to_neighbor(client_list)
-
-        #         # line 6: update
-        #         for client in client_list:
-        #             client.update_local_parameters()
-        #     else:
-        #         for client in client_list:
-        #             client.train_local(t)
-
-        #     regret = cal_regret(client_list, client_number, t)
-        #     # print("regret = %s" % regret)
-
-        #     wandb.log({"Average Loss": regret, "iteration": t})
-
-        #     f_log.write("%f,%f\n" % (t, regret))
-
-        # f_log.close()
-        # wandb.save(log_file_path)
+    #     mlops.log({"Test/Acc": test_acc, "round": round_idx})
+    #     mlops.log({"Test/Loss": test_loss, "round": round_idx})
+    #     logging.info(stats)
