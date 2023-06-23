@@ -32,13 +32,14 @@ class ClientPushsumMod(object):
         logging.info("CLIENT ID:{}".format(self.client_idx))
         logging.info("LOCAL_TRAINING_DATA:{}".format(self.local_training_data))
         logging.info("LOCAL_TESTING_DATA:{}".format(self.local_test_data))
-        logging.info("TRAIING_DATA_LOCAL_NUM_DICT:{}".format(self.local_sample_number))
+        logging.info("SAMPLE NUMBER:{}".format(self.local_sample_number))
         logging.info("DEVICE:{}".format(self.device))
         logging.info("MODEL_TRAINER:{}".format(self.model_trainer))
 
         # neighbors_weight_dict used for receiving weights from other clients
         self.neighbors_weight_dict = dict()
         self.neighbors_omega_dict = dict()
+        self.neighbors_sample_size = dict() # used to store sample information for peers of this client
         self.neighbors_topo_weight_dict = dict()
 
     #this code is not used.
@@ -70,6 +71,9 @@ class ClientPushsumMod(object):
 
     def update_topology(self, new_topology):
         self.topology = new_topology
+
+    def get_sample_number(self):
+        return self.local_sample_number
 
     def local_test(self, b_use_test_dataset):
         # set the parameters at the model trainer to this node's model also set the id
@@ -103,13 +107,15 @@ class ClientPushsumMod(object):
                 receiver_client = client_list[index]
                 receiver_client.receive_neighbor_gradients(
                     self.client_idx,
-                    self.model
+                    self.model,
+                    self.get_sample_number()
                 )
         # if(self.client_idx==1):
         #     logging.info("Sent to: {}".format(neighbor_list))
 
-    def receive_neighbor_gradients(self, client_id, model_x):
+    def receive_neighbor_gradients(self, client_id, model_x, sample_size):
         self.neighbors_weight_dict[client_id] = model_x
+        self.neighbors_sample_size[client_id] = sample_size
         # logging.info("Client{} received weights from client{}, len:{}".format(self.client_idx, client_id, len(self.neighbors_weight_dict)))
 
     def update_local_parameters(self):
@@ -132,5 +138,41 @@ class ClientPushsumMod(object):
             # logging.info("NORMALIZED: {}".format(new_model[k]))
         self.model = copy.deepcopy(new_model)
         self.neighbors_weight_dict = dict() #reset my weight dict
+    
+    def update_local_parameters_weighted(self):
+        # logging.info("Updating local parameters with weighted")
+        #GET TOTAL SAMPLE SIZE
+        my_size = self.get_sample_number()
+        neighbor_sample_total = 0
+        for neighbor_index in self.neighbors_sample_size:
+            neighbor_sample_total+=self.neighbors_sample_size[neighbor_index]
+            # logging.info(self.neighbors_sample_size[neighbor_index])
+        sample_total = my_size+neighbor_sample_total
+        # logging.info("{} | {} | {}".format(my_size, neighbor_sample_total, sample_total))
+        
+        # Make a copy of own model, will be used as anchor for aggregation
+        new_model = copy.deepcopy(self.model)
+
+        curr_weight = self.get_sample_number() / sample_total #this is the weight of my parameters
+        # SCALE MY MODEL
+        for k in new_model.keys():
+            new_model[k] *= curr_weight
+
+        # incorporate other node's changes                          
+        for k in new_model.keys():
+            # logging.info("AGGREGATING FOR:  {}".format(k))
+            # logging.info("INITITAL: {}".format(new_model[k]))
+            for i in self.neighbors_weight_dict:
+                curr_weight = self.neighbors_sample_size[i] / sample_total
+                neighbor_weight = self.neighbors_weight_dict[i]
+                # logging.info("WITH: {}".format(neighbor_weight[k]))
+                new_model[k] += neighbor_weight[k]*curr_weight
+                # logging.info("NEW: {}".format(new_model[k]))
+
+        #     # new_model[k] *= normalizer 
+        #     # logging.info("NORMALIZED: {}".format(new_model[k]))
+        self.model = copy.deepcopy(new_model)
+        self.neighbors_weight_dict = dict() #reset my weight dict
+        self.neighbors_sample_size = dict() #reset my sample dictionary
 
 

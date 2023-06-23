@@ -7,34 +7,35 @@ common_args:
   mlops_run_name: fedml_torch_fedavg_mnist_lr_1
 
 data_args:
-  dataset: "cifar10"
+  dataset: "mnist"
   data_cache_dir: ~/fedml_data
   partition_method: "hetero"
   partition_alpha: 0.5
 
 model_args:
-  model: "cnn_web"
+  model: "cnn"
 
 train_args:
   federated_optimizer: "decentralized_fl_mod"
   client_id_list: "[]"
   client_num_in_total: 1000
-  client_num_per_round: 4
-  client_num_participant: 50
+  client_num_per_round: 1000
+  client_num_participant: 100
   comm_round: 10
   epochs: 1
   batch_size: 10
   client_optimizer: sgd
   learning_rate: 0.03
   weight_decay: 0.001
-  iteration_number: 100
-  topology_neighbors_num_undirected: 5
-  topology_neighbors_num_directed: 5
+  iteration_number: 20
+  topology_neighbors_num_undirected: 10
+  topology_neighbors_num_directed: 10
   latency: 0
   b_symmetric: true
   epoch: 5
   time_varying: true
   link_probability: 0.1
+  weighted_aggregation: false
 
 simulation_args:
   simulation_end_time: 10000

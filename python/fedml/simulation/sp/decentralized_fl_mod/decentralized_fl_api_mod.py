@@ -65,7 +65,7 @@ class FedML_decentralized_fl_mod(object):
         client_id_list= [i for i in range(self.args.client_num_participant)]
         client_data_index = self.sample_without_rep() # this is not used yet, i think... lol
         logging.info("Client list: {}".format(client_id_list))
-        logging.info("Corrseponding datasets: {}".format(client_data_index))
+        # logging.info("Corrseponding datasets: {}".format(client_data_index))
 
         logging.info("generating topology for {} participating clients".format(self.args.client_num_participant))
         if self.args.b_symmetric:
@@ -142,7 +142,10 @@ class FedML_decentralized_fl_mod(object):
                 client.train(t)
                 client.send_local_gradient_to_neighbor(self.client_list)
             for client in self.client_list:
-                client.update_local_parameters()
+                if(self.args.weighted_aggregation):
+                    client.update_local_parameters_weighted()
+                else:
+                    client.update_local_parameters()
             
                     # test on training dataset
             train_acc = sum(train_metrics_pre["num_correct"]) / sum(train_metrics_pre["num_samples"])
